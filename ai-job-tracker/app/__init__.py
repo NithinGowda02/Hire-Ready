@@ -17,6 +17,20 @@ def create_app():
     env = os.environ.get('FLASK_ENV', 'development')
     app.config.from_object(DevelopmentConfig if env == 'development' else ProductionConfig)
 
+    # Fix DATABASE_URL for Neon / Render
+    # Both services give postgresql:// but SQLAlchemy needs postgresql+psycopg2://
+    db_url = os.environ.get('DATABASE_URL', '')
+    if db_url.startswith('postgres://'):
+        db_url = db_url.replace('postgres://', 'postgresql+psycopg2://', 1)
+    elif db_url.startswith('postgresql://'):
+        db_url = db_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    if db_url:
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,  # auto-reconnect if Neon suspends idle connection
+            'pool_recycle':  300,   # recycle connections every 5 min
+        }
+
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
