@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Generate Resume — CareerAI{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin-inline:auto;padding:var(--space-2xl) var(--space-lg)">
+
+  <!-- Header -->
+  <div class="page-header animate-fade-up">
+    <span class="eyebrow">Resume Generator</span>
+    <h1 style="margin-top:8px">Generate your ATS-optimized resume</h1>
+    <p>Create a professional, 1-page resume from your profile information using AI. The resume is optimized for Applicant Tracking Systems.</p>
+  </div>
+
+  <!-- Form card -->
+  <div class="card animate-fade-up delay-1 mb-xl" id="formCard">
+    <div class="form-section">
+      <h2 class="form-section-title">
+        Profile Summary
+        <span>Using your profile information</span>
+      </h2>
+      <p style="color: var(--c-text-secondary); font-size: 14px; margin-bottom: var(--space-lg);">
+        Your resume will be generated automatically from your profile information including:
+      </p>
+      <ul style="color: var(--c-text-secondary); font-size: 14px; margin-left: 20px; margin-bottom: var(--space-lg); line-height: 1.8;">
+        <li>✓ Personal details (name, email, phone, location)</li>
+        <li>✓ Professional summary</li>
+        <li>✓ Work experience (up to 3 roles)</li>
+        <li>✓ Education</li>
+        <li>✓ Skills and certifications</li>
+        <li>✓ Projects</li>
+      </ul>
+      
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn btn-primary btn-lg"
+          id="generateBtn"
+          onclick="generateResume()"
+        >
+          <span id="btnText">Generate Resume as PDF</span>
+          <span id="btnSpinner" class="spinner hidden" role="status" aria-label="Generating…"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview card -->
+  <div id="resultCard" class="hidden animate-fade-up delay-1">
+    <div class="form-section">
+      <h2 class="form-section-title">
+        Generated Resume
+        <span>Download or generate a new one</span>
+      </h2>
+      <div class="card">
+        <!-- Toolbar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-lg);flex-wrap:wrap;gap:var(--space-sm)">
+          <h3 style="font-size:16px;margin:0">Your ATS-Optimized Resume</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="downloadLastResume()" id="downloadBtn">
+              ⬇ Download PDF
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="generateNewResume()">
+              ↺ Generate new
+            </button>
+          </div>
+        </div>
+
+        <!-- PDF Preview -->
+        <div style="border: 1px solid var(--c-border); border-radius: var(--radius-md); background: white; padding: var(--space-lg);">
+          <p style="color: var(--c-text-muted); font-size: 14px; text-align: center; margin-bottom: var(--space-lg);">
+            📄 Your resume PDF has been generated and is ready to download
+          </p>
+          <div id="resumePreviewContainer" style="text-align: center;">
+            <p style="color: var(--c-text-secondary); font-size: 13px;">
+              The resume is optimized for ATS systems and fits on a single page.
+            </p>
+          </div>
+        </div>
+
+        <p class="form-hint mt-lg">✓ Resume generated successfully! Click the download button to save as PDF.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let lastDownloadUrl = null;
+
+async function generateResume() {
+  setLoading(true);
+
+  try {
+    const res = await fetch('/resume/generate', { 
+      method: 'POST'
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      showAlert(error.error || 'Failed to generate resume', 'error');
+      return;
+    }
+
+    // The response is the PDF file itself
+    const blob = await res.blob();
+    
+    // Create a download URL for later use
+    lastDownloadUrl = URL.createObjectURL(blob);
+    
+    document.getElementById('resultCard').classList.remove('hidden');
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Automatically download the PDF
+    downloadLastResume();
+
+  } catch (error) {
+    console.error(error);
+    showAlert('Failed to generate resume. Please ensure your profile is complete and try again.', 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function downloadLastResume() {
+  if (!lastDownloadUrl) {
+    showAlert('Resume not found. Please generate first.', 'error');
+    return;
+  }
+  
+  const a = document.createElement('a');
+  a.href = lastDownloadUrl;
+  a.download = 'resume.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function generateNewResume() {
+  document.getElementById('resultCard').classList.add('hidden');
+  lastDownloadUrl = null;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('generateBtn');
+  const btnText = document.getElementById('btnText');
+  const spinner = document.getElementById('btnSpinner');
+  btn.disabled = on;
+  btnText.textContent = on ? 'Generating resume…' : 'Generate Resume as PDF';
+  spinner.classList.toggle('hidden', !on);
+}
+
+function showAlert(msg, type = 'info') {
+  document.querySelectorAll('.page-alert').forEach(el => el.remove());
+  const el = document.createElement('div');
+  el.className = `alert alert-${type} page-alert`;
+  el.style.marginBottom = '16px';
+  el.textContent = msg;
+  document.getElementById('formCard').before(el);
+  setTimeout(() => el.remove(), 5000);
+}
+</script>
+{% endblock %}

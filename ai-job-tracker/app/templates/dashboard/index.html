@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CareerAI{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-block: var(--space-2xl)">
+
+  <!-- Header -->
+  <div class="page-header animate-fade-up">
+    <span class="eyebrow">Dashboard</span>
+    <h1 style="margin-top:8px">Good to see you, {{ current_user.name.split()[0] }}! 👋</h1>
+    <p>Here's your job search overview for today.</p>
+  </div>
+
+  <!-- Action cards -->
+  <div class="dash-grid animate-fade-up delay-1">
+
+    <a href="{{ url_for('resume.generate') }}" class="dash-card card-interactive" aria-label="Generate resume">
+      <div class="dash-icon">📄</div>
+      <h3>Resume Generator</h3>
+      <p>
+        {% if profile %}
+          Your profile is ready. Generate a fresh ATS-optimized resume.
+        {% else %}
+          Complete your profile to unlock AI resume generation.
+        {% endif %}
+      </p>
+      <span class="btn btn-primary btn-sm" style="align-self:flex-start">
+        {% if profile %}Generate resume{% else %}Setup profile{% endif %}
+      </span>
+    </a>
+
+    <a href="{{ url_for('jobs.listings') }}" class="dash-card card-interactive" aria-label="Browse jobs">
+      <div class="dash-icon">🔍</div>
+      <h3>Job Search</h3>
+      <p>Browse thousands of listings from multiple job boards, filtered to your skills.</p>
+      <span class="btn btn-primary btn-sm" style="align-self:flex-start">Browse jobs</span>
+    </a>
+
+    <a href="{{ url_for('resume.parse') }}" class="dash-card card-interactive" aria-label="Analyze resume">
+      <div class="dash-icon">📊</div>
+      <h3>ATS Analyzer</h3>
+      <p>Paste a job description and get an instant match score with improvement tips.</p>
+      <span class="btn btn-primary btn-sm" style="align-self:flex-start">Analyze now</span>
+    </a>
+
+    <a href="{{ url_for('cover_letter.generate') }}" class="dash-card card-interactive" aria-label="Cover letter generator">
+      <div class="dash-icon">✉️</div>
+      <h3>Cover Letters</h3>
+      <p>Generate personalized, compelling cover letters tailored to any job posting.</p>
+      <span class="btn btn-primary btn-sm" style="align-self:flex-start">Write cover letter</span>
+    </a>
+
+  </div>
+
+  <!-- Recent resumes -->
+  {% if resumes %}
+  <section class="mt-xl animate-fade-up delay-2" aria-label="Recent resumes">
+    <div class="section-label">
+      <h2 style="font-size:18px;font-weight:600">Recent Resumes</h2>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-sm)">
+      {% for resume in resumes %}
+      <div class="resume-row">
+        <div>
+          <h4>{{ resume.title }}</h4>
+          <p>Created {{ resume.created_at.strftime('%B %d, %Y') }}</p>
+        </div>
+        <div class="resume-row-actions">
+          <a
+            href="{{ url_for('resume.download', resume_id=resume.id) }}"
+            class="btn btn-secondary btn-sm"
+            aria-label="Download {{ resume.title }}"
+          >
+            ↓ PDF
+          </a>
+          <a
+            href="{{ url_for('resume.generate') }}"
+            class="btn btn-ghost btn-sm"
+            aria-label="Regenerate {{ resume.title }}"
+          >
+            Regenerate
+          </a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% else %}
+  <section class="mt-xl animate-fade-up delay-2">
+    <div class="section-label">
+      <h2 style="font-size:18px;font-weight:600">Recent Resumes</h2>
+    </div>
+    <div class="empty-state card">
+      <div class="empty-icon">📄</div>
+      <h3>No resumes yet</h3>
+      <p>Generate your first AI-powered resume to get started.</p>
+      <a href="{{ url_for('resume.generate') }}" class="btn btn-primary mt-md">Generate resume</a>
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}

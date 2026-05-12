@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+{% block title %}Job Listings — HireReady{% endblock %}
+
+{% block content %}
+<div class="jobs-layout">
+
+  <!-- Header -->
+  <div class="animate-fade-up" style="margin-bottom:var(--space-xl)">
+    <span class="eyebrow">Job Search</span>
+    <h1 style="margin-top:8px">Find your next opportunity</h1>
+    <p style="color:var(--c-text-secondary);margin-top:6px;font-size:16px">
+      Live listings powered by Adzuna — apply directly from here.
+    </p>
+  </div>
+
+  <!-- Search bar -->
+  <div class="card animate-fade-up delay-1" style="margin-bottom:var(--space-xl);padding:var(--space-lg)">
+    <div class="search-bar" role="search">
+      <!-- Search icon -->
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true"
+           style="color:var(--c-text-muted);flex-shrink:0">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+
+      <input type="text" id="keywordInput"
+             placeholder="Job title, skills, or company"
+             value="software engineer"
+             aria-label="Search by keyword" />
+
+      <div class="sep" aria-hidden="true"></div>
+
+      <!-- Location icon -->
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" aria-hidden="true"
+           style="color:var(--c-text-muted);flex-shrink:0">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+        <circle cx="12" cy="10" r="3"/>
+      </svg>
+
+      <input type="text" id="locationInput"
+             placeholder="City or state"
+             value="Bengaluru"
+             aria-label="Search by location"
+             style="max-width:180px" />
+
+      <button class="btn btn-primary btn-sm" onclick="searchJobs(1)" aria-label="Search jobs">
+        Search
+      </button>
+    </div>
+
+    <!-- Quick filters -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:var(--space-md)">
+      <span style="font-size:12px;color:var(--c-text-muted);align-self:center">Quick:</span>
+      <button class="filter-chip" onclick="quickSearch('Python Developer')">Python</button>
+      <button class="filter-chip" onclick="quickSearch('Full Stack Developer')">Full Stack</button>
+      <button class="filter-chip" onclick="quickSearch('Data Scientist')">Data Science</button>
+      <button class="filter-chip" onclick="quickSearch('React Developer')">React</button>
+      <button class="filter-chip" onclick="quickSearch('DevOps Engineer')">DevOps</button>
+      <button class="filter-chip" onclick="quickSearch('Machine Learning Engineer')">ML Engineer</button>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="statsBar" class="hidden" style="margin-bottom:var(--space-lg);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <p id="resultsCount" style="font-size:14px;color:var(--c-text-secondary)"></p>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:13px;color:var(--c-text-muted)">Sort:</label>
+      <select id="sortSelect" class="form-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="searchJobs(1)">
+        <option value="date">Newest first</option>
+        <option value="relevance">Most relevant</option>
+        <option value="salary">Highest salary</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="jobsLoading" class="loading-block hidden" aria-live="polite">
+    <div class="spinner-lg" role="status"></div>
+    <span>Searching for jobs…</span>
+  </div>
+
+  <!-- Error banner -->
+  <div id="errorBanner" class="alert alert-error hidden" style="margin-bottom:var(--space-lg)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <span id="errorMsg"></span>
+  </div>
+
+  <!-- Job cards grid -->
+  <div id="jobsResults" class="jobs-grid" aria-live="polite" aria-label="Job results"></div>
+
+  <!-- Pagination -->
+  <div id="pagination" class="pagination-row hidden" style="margin-top:var(--space-xl)">
+    <button id="prevBtn" class="btn btn-secondary btn-sm" onclick="searchJobs(currentPage - 1)" disabled>
+      ← Previous
+    </button>
+    <span id="pageInfo" class="page-info">Page 1</span>
+    <button id="nextBtn" class="btn btn-secondary btn-sm" onclick="searchJobs(currentPage + 1)">
+      Next →
+    </button>
+  </div>
+
+</div>
+
+<!-- ── Apply Modal ──────────────────────────────────────────────────────── -->
+<div id="applyModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;padding:var(--space-lg)">
+  <div style="background:var(--c-surface);border-radius:var(--radius-xl);padding:var(--space-xl);max-width:500px;width:100%;box-shadow:var(--shadow-lg);position:relative;max-height:90vh;overflow-y:auto">
+
+    <!-- Close -->
+    <button onclick="closeModal()" aria-label="Close"
+            style="position:absolute;top:16px;right:16px;background:transparent;border:none;cursor:pointer;color:var(--c-text-muted);font-size:20px;line-height:1">✕</button>
+
+    <span class="eyebrow" style="font-size:10px">Apply now</span>
+    <h2 id="modalTitle" style="margin-top:6px;font-size:20px;line-height:1.3"></h2>
+    <p id="modalCompany" style="color:var(--c-text-secondary);font-size:14px;margin-top:4px"></p>
+
+    <div style="margin:var(--space-lg) 0;padding:var(--space-md);background:var(--c-surface-2);border-radius:var(--radius-md);border:1px solid var(--c-border)">
+      <p id="modalDesc" style="font-size:14px;color:var(--c-text-secondary);line-height:1.7"></p>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:var(--space-md);flex-wrap:wrap">
+      <span id="modalLocation" class="badge badge-default"></span>
+      <span id="modalSalary"   class="badge badge-accent" style="display:none"></span>
+      <span id="modalCategory" class="badge badge-blue"   style="display:none"></span>
+    </div>
+
+    <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap">
+      <a id="applyLink" href="#" target="_blank" rel="noopener noreferrer"
+         class="btn btn-primary btn-lg" style="flex:1;justify-content:center">
+        Apply on Adzuna ↗
+      </a>
+      <button onclick="closeModal()" class="btn btn-secondary btn-lg">
+        Cancel
+      </button>
+    </div>
+
+    <p style="font-size:11px;color:var(--c-text-muted);margin-top:var(--space-md);text-align:center">
+      You'll be taken to the employer's application page on Adzuna.
+    </p>
+  </div>
+</div>
+
+<style>
+/* ── Job card ──────────────────────────────────────────────── */
+.job-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--dur-med) var(--ease-out),
+              transform  var(--dur-med) var(--ease-out),
+              border-color var(--dur-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.job-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--c-border-2);
+}
+
+.job-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.job-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.job-company {
+  font-size: 14px;
+  color: var(--c-text-secondary);
+  margin: 2px 0 0;
+}
+
+.job-meta {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.job-desc {
+  font-size: 14px;
+  color: var(--c-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.job-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--c-border);
+}
+
+.job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ── Filter chips ──────────────────────────────────────────── */
+.filter-chip {
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--c-border-2);
+  background: var(--c-surface);
+  color: var(--c-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-fast);
+  font-family: var(--font-sans);
+}
+
+.filter-chip:hover {
+  background: var(--c-accent-lt);
+  border-color: var(--c-accent);
+  color: var(--c-accent-dk);
+}
+
+/* ── Modal backdrop ────────────────────────────────────────── */
+#applyModal.open { display: flex !important; }
+</style>
+
+<script>
+/* ── State ─────────────────────────────────────────────────── */
+let currentPage     = 1;
+let totalPages      = 1;
+let currentKeyword  = 'software engineer';
+let currentLocation = 'Bengaluru';
+
+/* ── Search ────────────────────────────────────────────────── */
+async function searchJobs(page = 1) {
+  const keyword  = document.getElementById('keywordInput').value.trim()  || 'software engineer';
+  const location = document.getElementById('locationInput').value.trim() || 'Bengaluru';
+  const sort     = document.getElementById('sortSelect')?.value || 'date';
+
+  currentKeyword  = keyword;
+  currentLocation = location;
+  currentPage     = page;
+
+  showLoading(true);
+  hideError();
+
+  try {
+    const url = `/jobs/search?keyword=${encodeURIComponent(keyword)}&location=${encodeURIComponent(location)}&page=${page}&sort=${sort}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.error) {
+      showError(data.error);
+      renderJobs([]);
+      return;
+    }
+
+    renderJobs(data.jobs || []);
+    updateStats(data.total || 0, keyword);
+    updatePagination(data.page || page, data.pages || 1);
+
+  } catch (err) {
+    showError('Failed to connect to job search. Please check your internet connection.');
+    renderJobs([]);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function quickSearch(keyword) {
+  document.getElementById('keywordInput').value = keyword;
+  searchJobs(1);
+}
+
+/* ── Render job cards ──────────────────────────────────────── */
+function renderJobs(jobs) {
+  const el = document.getElementById('jobsResults');
+
+  if (!jobs || jobs.length === 0) {
+    el.innerHTML = `
+      <div class="empty-state card" style="grid-column:1/-1">
+        <div class="empty-icon">🔍</div>
+        <h3>No jobs found</h3>
+        <p>Try different keywords or a broader location like "India".</p>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = jobs.map((job, i) => `
+    <article class="job-card animate-fade-up" style="animation-delay:${i * 0.04}s"
+             aria-label="${esc(job.title)} at ${esc(job.company)}">
+
+      <div class="job-card-top">
+        <div style="flex:1;min-width:0">
+          <h2 class="job-title">${esc(job.title)}</h2>
+          <p class="job-company">${esc(job.company)}</p>
+        </div>
+        ${salaryBadge(job)}
+      </div>
+
+      <div class="job-meta">
+        <span>📍 ${esc(job.location)}</span>
+        ${job.created ? `<span>·</span><span>${fmtDate(job.created)}</span>` : ''}
+        ${job.job_type ? `<span>·</span><span class="badge badge-default" style="font-size:11px">${esc(fmtType(job.job_type))}</span>` : ''}
+      </div>
+
+      <p class="job-desc">${esc(job.description)}</p>
+
+      <div class="job-footer">
+        <div class="job-tags">
+          ${job.category ? `<span class="badge badge-blue">${esc(job.category)}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm"
+                  onclick='openModal(${JSON.stringify(job).replace(/'/g, "&#39;")})'>
+            View details
+          </button>
+          <a href="${esc(job.url)}" target="_blank" rel="noopener noreferrer"
+             class="btn btn-primary btn-sm">
+            Apply ↗
+          </a>
+        </div>
+      </div>
+    </article>
+  `).join('');
+}
+
+/* ── Modal ─────────────────────────────────────────────────── */
+function openModal(job) {
+  document.getElementById('modalTitle').textContent   = job.title    || '';
+  document.getElementById('modalCompany').textContent = job.company  || '';
+  document.getElementById('modalDesc').textContent    = job.description || 'No description available.';
+  document.getElementById('modalLocation').textContent = '📍 ' + (job.location || '');
+  document.getElementById('applyLink').href           = job.url      || '#';
+
+  const salaryEl   = document.getElementById('modalSalary');
+  const categoryEl = document.getElementById('modalCategory');
+
+  if (job.salary_min && job.salary_max) {
+    salaryEl.textContent = `₹${fmt(job.salary_min)} – ₹${fmt(job.salary_max)} p.a.`;
+    salaryEl.style.display = '';
+  } else {
+    salaryEl.style.display = 'none';
+  }
+
+  if (job.category) {
+    categoryEl.textContent = job.category;
+    categoryEl.style.display = '';
+  } else {
+    categoryEl.style.display = 'none';
+  }
+
+  const modal = document.getElementById('applyModal');
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('applyModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close on backdrop click
+document.getElementById('applyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Close on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ── Pagination ────────────────────────────────────────────── */
+function updatePagination(current, total) {
+  totalPages = total;
+  currentPage = current;
+  const pag     = document.getElementById('pagination');
+  const info    = document.getElementById('pageInfo');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+
+  info.textContent  = `Page ${current} of ${total}`;
+  prevBtn.disabled  = current <= 1;
+  nextBtn.disabled  = current >= total;
+  pag.classList.remove('hidden');
+}
+
+function updateStats(total, keyword) {
+  const bar = document.getElementById('statsBar');
+  const cnt = document.getElementById('resultsCount');
+  cnt.textContent = `${total.toLocaleString('en-IN')} jobs found for "${keyword}"`;
+  bar.classList.remove('hidden');
+  bar.style.display = 'flex';
+}
+
+/* ── UI helpers ────────────────────────────────────────────── */
+function showLoading(on) {
+  document.getElementById('jobsLoading').classList.toggle('hidden', !on);
+  if (on) {
+    document.getElementById('jobsResults').innerHTML = '';
+    document.getElementById('pagination').classList.add('hidden');
+    document.getElementById('statsBar').classList.add('hidden');
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  document.getElementById('errorMsg').textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('errorBanner').classList.add('hidden');
+}
+
+/* ── Formatting helpers ────────────────────────────────────── */
+function esc(str = '') {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('en-IN');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  } catch { return ''; }
+}
+
+function fmtType(t) {
+  if (!t) return '';
+  return t.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function salaryBadge(job) {
+  if (!job.salary_min || !job.salary_max) return '';
+  return `<span class="badge badge-accent" style="white-space:nowrap;flex-shrink:0">₹${fmt(job.salary_min)}–₹${fmt(job.salary_max)}</span>`;
+}
+
+/* ── Keyboard shortcut: Enter to search ───────────────────── */
+['keywordInput', 'locationInput'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchJobs(1);
+  });
+});
+
+/* ── Auto-load on page open ────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => searchJobs(1));
+</script>
+{% endblock %}

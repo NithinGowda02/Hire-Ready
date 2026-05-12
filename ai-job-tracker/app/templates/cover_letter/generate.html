@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Cover Letter Generator — CareerAI{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin-inline:auto;padding:var(--space-2xl) var(--space-lg)">
+
+  <!-- Toast notification -->
+  <div id="toast" class="alert alert-error animate-fade-up hidden"
+       style="margin-bottom:var(--space-lg);position:sticky;top:calc(var(--nav-h) + 12px);z-index:100">
+    <span id="toastMsg"></span>
+    <button onclick="hideToast()" class="btn btn-ghost btn-sm btn-icon"
+            style="margin-left:auto;flex-shrink:0" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- Header -->
+  <div class="animate-fade-up" style="margin-bottom:var(--space-xl)">
+    <span class="eyebrow">Cover Letter Generator</span>
+    <h1 style="margin-top:8px;letter-spacing:-.02em">Write a personalized cover letter</h1>
+    <p style="color:var(--c-text-secondary);margin-top:8px;font-size:16px;max-width:56ch">
+      Paste a job description and let AI craft a compelling, tailored cover letter in seconds.
+    </p>
+  </div>
+
+  <!-- Form card -->
+  <div class="card animate-fade-up delay-1" style="margin-bottom:var(--space-xl)" id="formCard">
+    <form id="coverLetterForm" novalidate>
+
+      <div class="form-section" style="border:none;padding:0;background:transparent">
+        <h2 class="form-section-title" style="font-size:17px">
+          Job information
+          <span>Provide details for the cover letter</span>
+        </h2>
+
+        <div class="form-group" style="margin-bottom:var(--space-lg)">
+          <label class="form-label" for="company_name">
+            Company name
+            <span style="color:var(--c-text-muted);font-weight:400">(optional)</span>
+          </label>
+          <input
+            class="form-input"
+            type="text"
+            id="company_name"
+            name="company_name"
+            placeholder="e.g. Acme Corp"
+            autocomplete="organization"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="job_description">
+            Job description
+            <span style="color:var(--c-red)">*</span>
+          </label>
+          <textarea
+            class="form-textarea"
+            id="job_description"
+            name="job_description"
+            rows="10"
+            required
+            placeholder="Paste the full job description here — include responsibilities, required skills, and qualifications for the best results."
+            style="min-height:200px"
+          ></textarea>
+          <span class="form-hint">Longer, more detailed descriptions produce better cover letters.</span>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:var(--space-lg)">
+        <button type="button" class="btn btn-primary btn-lg" id="generateBtn" onclick="generateCoverLetter()">
+          <span id="btnText">Generate cover letter</span>
+          <div id="loadingSpinner" class="spinner hidden"></div>
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- Preview card (hidden until generated) -->
+  <div class="card animate-fade-up delay-2 hidden" id="previewCard">
+
+    <div class="form-section" style="border:none;padding:0;background:transparent">
+      <div class="preview-header">
+        <div>
+          <h2 class="form-section-title" style="font-size:17px;margin-bottom:4px;border-bottom:none;padding-bottom:0">
+            Your cover letter
+          </h2>
+          <p style="font-size:13px;color:var(--c-text-muted);margin-top:0">
+            Review, copy, or download below
+          </p>
+        </div>
+        <div class="flex gap-sm" style="flex-shrink:0;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="copyToClipboard()">
+            Copy to clipboard
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="downloadAsText()">
+            Download .txt
+          </button>
+        </div>
+      </div>
+
+      <!-- Letter body -->
+      <div id="coverLetterContent" class="cover-letter-content"></div>
+
+      <!-- Re-generate strip -->
+      <div style="margin-top:var(--space-lg);padding-top:var(--space-lg);border-top:1px solid var(--c-border);display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--c-text-muted)">Not happy with the result?</span>
+        <button class="btn btn-ghost btn-sm" onclick="generateCoverLetter()">Regenerate</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.cover-letter-content {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: var(--space-lg);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-lg);
+  color: var(--c-text-primary);
+}
+
+.preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: var(--space-md);
+}
+</style>
+
+<script>
+let currentCoverLetter = '';
+
+/* ── Toast helpers ───────────────────────────────────────── */
+function showToast(msg, type = 'error') {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.className = `alert alert-${type} animate-fade-up`;
+  toast.classList.remove('hidden');
+  if (type === 'success') {
+    setTimeout(hideToast, 3000);
+  }
+}
+
+function hideToast() {
+  document.getElementById('toast').classList.add('hidden');
+}
+
+/* ── Main generate function ──────────────────────────────── */
+async function generateCoverLetter() {
+  const jd = document.getElementById('job_description').value.trim();
+  if (!jd) {
+    showToast('Please paste a job description before generating.');
+    document.getElementById('job_description').focus();
+    return;
+  }
+
+  hideToast();
+
+  const btn      = document.getElementById('generateBtn');
+  const btnText  = document.getElementById('btnText');
+  const spinner  = document.getElementById('loadingSpinner');
+
+  btn.disabled = true;
+  btnText.textContent = 'Generating…';
+  spinner.classList.remove('hidden');
+
+  try {
+    const formData = new FormData(document.getElementById('coverLetterForm'));
+
+    const response = await fetch('/cover-letter/generate', {
+      method: 'POST',
+      body: formData
+    });
+
+    /* Handle non-2xx HTTP errors (404, 500, etc.) */
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Server error ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    if (!data.cover_letter || !data.cover_letter.trim()) {
+      throw new Error('The AI returned an empty response. Please try again.');
+    }
+
+    currentCoverLetter = data.cover_letter;
+    document.getElementById('coverLetterContent').textContent = data.cover_letter;
+    document.getElementById('previewCard').classList.remove('hidden');
+
+    /* Smooth scroll to result */
+    document.getElementById('previewCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    showToast(err.message || 'Something went wrong. Please try again.');
+    console.error('[CoverLetter]', err);
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Generate cover letter';
+    spinner.classList.add('hidden');
+  }
+}
+
+/* ── Copy ────────────────────────────────────────────────── */
+function copyToClipboard() {
+  if (!currentCoverLetter) return;
+  navigator.clipboard.writeText(currentCoverLetter)
+    .then(() => showToast('Copied to clipboard!', 'success'))
+    .catch(() => showToast('Copy failed — please select the text manually.'));
+}
+
+/* ── Download ────────────────────────────────────────────── */
+function downloadAsText() {
+  if (!currentCoverLetter) return;
+  const blob = new Blob([currentCoverLetter], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: 'cover_letter.txt'
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

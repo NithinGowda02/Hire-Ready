@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}CareerAI — AI-Powered Job Search{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section class="hero section" aria-label="Hero">
+  <div class="container" style="position:relative;z-index:1">
+
+    <div class="animate-fade-up">
+      <span class="hero-eyebrow" aria-hidden="true">✦ Powered by Google Gemini AI</span>
+    </div>
+
+    <h1 class="hero-title animate-fade-up delay-1">
+      Land your <em>dream job</em> with AI
+    </h1>
+
+    <p class="hero-sub animate-fade-up delay-2">
+      Generate ATS-optimized resumes, personalized cover letters, and get real-time job match scores — all in one place.
+    </p>
+
+    <div class="hero-cta animate-fade-up delay-3">
+      <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-xl">
+        Start for free — no card needed
+      </a>
+      <a href="#features" class="btn btn-secondary btn-xl">
+        See how it works
+      </a>
+    </div>
+
+    <!-- Social proof -->
+    <div class="hero-social-proof animate-fade-up delay-4">
+      <div class="avatar-stack" aria-hidden="true">
+        <div class="av">😊</div>
+        <div class="av">🧑‍💻</div>
+        <div class="av">👩‍🎓</div>
+        <div class="av">🎯</div>
+      </div>
+      <span>Trusted by <strong>12,000+</strong> job seekers this year</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Stats bar ────────────────────────────────────────────── -->
+<div class="stats-bar" aria-label="Statistics">
+  <div class="container">
+    <div class="stat-block">
+      <div class="stat-num">93%</div>
+      <div class="stat-label">ATS pass rate</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-num">3×</div>
+      <div class="stat-label">More interviews</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-num">12k+</div>
+      <div class="stat-label">Resumes generated</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-num">4.9</div>
+      <div class="stat-label">Average rating</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────── -->
+<section id="features" class="features-section section" aria-label="Features">
+  <div class="container">
+
+    <div style="text-align:center;margin-bottom:var(--space-2xl)">
+      <span class="eyebrow">What you get</span>
+      <h2 style="margin-top:12px;font-family:var(--font-display);font-size:clamp(28px,5vw,44px)">
+        Everything you need to get hired
+      </h2>
+    </div>
+
+    <div class="features-grid">
+
+      <article class="feat-card">
+        <div class="feat-icon">📄</div>
+        <h3>ATS-Optimized Resumes</h3>
+        <p>Our AI crafts resumes designed to pass Applicant Tracking Systems, using keywords that matter to recruiters.</p>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon">📊</div>
+        <h3>Resume Scoring</h3>
+        <p>Paste any job description and get an instant match score with actionable suggestions to improve your fit.</p>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon">✉️</div>
+        <h3>Smart Cover Letters</h3>
+        <p>Generate personalized cover letters tailored to specific job postings and companies in seconds.</p>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon">🔍</div>
+        <h3>Job Tracking</h3>
+        <p>Search thousands of listings from multiple job boards and track every application in one clean dashboard.</p>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ──────────────────────────────────────────────────── -->
+<section class="cta-banner section-sm" aria-label="Call to action">
+  <div class="container" style="position:relative;z-index:1">
+    <h2>Ready to accelerate your career?</h2>
+    <p>Join thousands using AI to land more interviews, faster.</p>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-accent btn-xl">
+      Get started — it's free
+    </a>
+  </div>
+</section>
+
+{% endblock %}

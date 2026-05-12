@@ -1,0 +1,63 @@
+<nav class="navbar" id="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+
+    <!-- Logo -->
+    <a href="{{ url_for('home') }}" class="nav-logo" aria-label="CareerAI home">
+      CareerAI<span class="nav-logo-dot"></span>
+    </a>
+
+    <!-- Desktop links -->
+    <div class="nav-links" role="list">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('dashboard.index') }}"    class="nav-link" role="listitem">Dashboard</a>
+        <a href="{{ url_for('resume.generate') }}"    class="nav-link" role="listitem">Resume</a>
+        <a href="{{ url_for('jobs.listings') }}"      class="nav-link" role="listitem">Jobs</a>
+        <a href="{{ url_for('cover_letter.generate') }}" class="nav-link" role="listitem">Cover Letter</a>
+        <a href="{{ url_for('resume.parse') }}"       class="nav-link" role="listitem">Analyze</a>
+      {% endif %}
+    </div>
+
+    <!-- Desktop actions -->
+    <div class="nav-actions">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm">Sign out</a>
+        <a href="{{ url_for('profile.setup') }}" class="btn btn-secondary btn-sm">Profile</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}"    class="btn btn-ghost btn-sm">Login</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">Get started</a>
+      {% endif %}
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button
+      class="nav-toggle"
+      id="navToggle"
+      aria-label="Open navigation"
+      aria-expanded="false"
+      aria-controls="navDrawer"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+  </div>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="nav-drawer" id="navDrawer" role="dialog" aria-label="Mobile navigation">
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('dashboard.index') }}"    class="nav-link">📊 Dashboard</a>
+    <a href="{{ url_for('resume.generate') }}"    class="nav-link">📄 Resume</a>
+    <a href="{{ url_for('jobs.listings') }}"      class="nav-link">🔍 Jobs</a>
+    <a href="{{ url_for('cover_letter.generate') }}" class="nav-link">✉️ Cover Letter</a>
+    <a href="{{ url_for('resume.parse') }}"       class="nav-link">📊 Analyze</a>
+    <div style="margin-top:auto;padding-top:16px;border-top:1px solid var(--c-border);display:flex;gap:8px;">
+      <a href="{{ url_for('profile.setup') }}" class="btn btn-secondary btn-sm" style="flex:1">Profile</a>
+      <a href="{{ url_for('auth.logout') }}"   class="btn btn-ghost btn-sm"     style="flex:1">Sign out</a>
+    </div>
+  {% else %}
+    <a href="{{ url_for('auth.login') }}"    class="nav-link">Login</a>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-full mt-md">Get started free</a>
+  {% endif %}
+</div>

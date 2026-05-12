@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+{% block title %}Resume Analysis - CareerAI{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="analyzer-layout">
+
+  <div class="page-header animate-fade-up">
+    <span class="eyebrow">ATS Analyzer</span>
+    <h1 style="margin-top:8px">Resume ATS analysis</h1>
+    <p>Paste a job description and get a richer, more visual AI breakdown of resume fit, keyword coverage, and next actions.</p>
+  </div>
+
+  <div class="card animate-fade-up delay-1 mb-xl" id="formCard">
+    <form id="parseForm" enctype="multipart/form-data" novalidate>
+
+      <div class="form-section">
+        <h2 class="form-section-title">
+          Resume File
+          <span>Optional - defaults to your profile data</span>
+        </h2>
+        <label class="form-file" for="resume_file">
+          Upload a PDF or DOCX - or leave blank to use your saved profile
+        </label>
+        <input
+          type="file"
+          id="resume_file"
+          name="resume_file"
+          accept=".pdf,.docx,.doc"
+          class="sr-only"
+          onchange="updateFileLabel(this)"
+          aria-label="Upload resume file"
+        />
+      </div>
+
+      <div class="form-section mt-lg">
+        <h2 class="form-section-title">
+          Job Description
+          <span>Paste the job details for analysis</span>
+        </h2>
+        <div class="form-group">
+          <textarea
+            class="form-textarea"
+            id="job_description"
+            name="job_description"
+            rows="10"
+            placeholder="Paste the full job description here. Include required skills, responsibilities, and qualifications for the best results."
+            required
+          ></textarea>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-lg mt-md" onclick="analyzeResume()" id="analyzeBtn">
+        <span id="analyzeBtnText">Analyze resume</span>
+        <span id="analyzeBtnSpinner" class="spinner hidden" role="status"></span>
+      </button>
+
+    </form>
+  </div>
+
+  <div
+    id="errorBanner"
+    class="hidden"
+    style="
+      background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;
+      border-radius:10px;padding:16px 20px;margin-bottom:24px;
+      font-size:15px;font-weight:500;line-height:1.5;
+    "
+  ></div>
+
+  <div id="results" class="hidden animate-fade-up" aria-live="polite">
+
+    <div class="score-summary score-hero card mb-xl">
+      <div class="score-hero-panel">
+        <div class="score-ring-wrap">
+          <svg width="130" height="130" viewBox="0 0 130 130" aria-hidden="true">
+            <circle cx="65" cy="65" r="57" stroke="var(--c-border-2)" stroke-width="9" fill="none"/>
+            <circle
+              id="scoreRing"
+              cx="65" cy="65" r="57"
+              stroke="var(--c-accent)"
+              stroke-width="9"
+              fill="none"
+              stroke-dasharray="358.1"
+              stroke-dashoffset="358.1"
+              transform="rotate(-90 65 65)"
+              style="transition:stroke-dashoffset .8s cubic-bezier(.16,1,.3,1)"
+            />
+          </svg>
+          <div class="score-ring-label">
+            <div class="score-ring-num" id="scoreNum">0</div>
+            <div class="score-ring-unit">/ 100</div>
+          </div>
+        </div>
+
+        <div class="score-hero-copy">
+          <div class="score-hero-topline">
+            <span class="score-status-pill" id="scoreStatus">Analysis ready</span>
+            <span class="score-timestamp">Live AI review</span>
+          </div>
+          <h2 id="scoreTitle" class="score-title">ATS Match Score</h2>
+          <p id="overallFeedback" class="score-feedback"></p>
+          <div class="fit-meter" aria-hidden="true">
+            <div class="fit-meter-bar">
+              <div id="fitMeterFill" class="fit-meter-fill"></div>
+            </div>
+            <div id="fitMeterLabel" class="fit-meter-label">Calibrating your resume fit</div>
+          </div>
+          <div class="score-badges" id="scoreBadges"></div>
+        </div>
+      </div>
+
+      <div class="analysis-snapshot">
+        <div class="snapshot-card">
+          <span class="snapshot-label">Keyword Coverage</span>
+          <strong id="coverageValue">0%</strong>
+          <span id="coverageHint" class="snapshot-subtle">Matched terms vs missing terms</span>
+        </div>
+        <div class="snapshot-card">
+          <span class="snapshot-label">Top Section</span>
+          <strong id="topSectionValue">Pending</strong>
+          <span id="topSectionHint" class="snapshot-subtle">Waiting for analysis</span>
+        </div>
+        <div class="snapshot-card">
+          <span class="snapshot-label">Priority Focus</span>
+          <strong id="focusAreaValue">Pending</strong>
+          <span id="focusAreaHint" class="snapshot-subtle">Most important fix</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight-grid mb-xl">
+      <div class="insight-card">
+        <span class="insight-kicker">Strongest area</span>
+        <h3 id="bestSectionName">Waiting for results</h3>
+        <p id="bestSectionText">Your highest-scoring section will appear here after analysis.</p>
+      </div>
+      <div class="insight-card">
+        <span class="insight-kicker">Needs attention</span>
+        <h3 id="weakSectionName">Waiting for results</h3>
+        <p id="weakSectionText">Your lowest-scoring section will surface here with context.</p>
+      </div>
+      <div class="insight-card">
+        <span class="insight-kicker">Keyword signal</span>
+        <h3 id="keywordInsightTitle">Waiting for results</h3>
+        <p id="keywordInsightText">We will estimate how closely your resume language matches the role.</p>
+      </div>
+    </div>
+
+    <div class="analysis-grid mb-xl analysis-grid-featured">
+      <div class="card analysis-card analysis-card-wide">
+        <div class="analysis-card-head">
+          <div>
+            <span class="card-kicker">Visual Breakdown</span>
+            <h3>Section performance</h3>
+          </div>
+          <span class="mini-badge" id="sectionSummaryBadge">Score by category</span>
+        </div>
+        <div class="section-breakdown-layout">
+          <div class="chart-shell">
+            <canvas id="sectionChart"></canvas>
+          </div>
+          <div id="sectionList" class="section-list"></div>
+        </div>
+      </div>
+
+      <div class="card analysis-card">
+        <div class="analysis-card-head">
+          <div>
+            <span class="card-kicker">Signal Summary</span>
+            <h3>Match pulse</h3>
+          </div>
+        </div>
+        <div class="pulse-stack">
+          <div class="pulse-row">
+            <span>Matched keywords</span>
+            <strong id="matchedCountInline">0</strong>
+          </div>
+          <div class="pulse-row">
+            <span>Missing keywords</span>
+            <strong id="missingCountInline">0</strong>
+          </div>
+          <div class="pulse-row">
+            <span>Action items</span>
+            <strong id="improvementCountInline">0</strong>
+          </div>
+        </div>
+        <div class="coverage-visual">
+          <div class="coverage-track">
+            <div id="coverageMatchedBar" class="coverage-fill coverage-fill-good"></div>
+            <div id="coverageMissingBar" class="coverage-fill coverage-fill-gap"></div>
+          </div>
+          <div class="coverage-legend">
+            <span><i class="legend-dot legend-good"></i>Matched</span>
+            <span><i class="legend-dot legend-gap"></i>Missing</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-grid mb-xl">
+      <div class="card analysis-card">
+        <div class="analysis-card-head">
+          <div>
+            <span class="card-kicker">Alignment</span>
+            <h3>
+              Matched keywords
+              <span id="matchedCount" class="badge badge-green" style="margin-left:6px"></span>
+            </h3>
+          </div>
+        </div>
+        <div id="matchedKeywords" class="keyword-cloud"></div>
+      </div>
+
+      <div class="card analysis-card">
+        <div class="analysis-card-head">
+          <div>
+            <span class="card-kicker">Gaps</span>
+            <h3>
+              Missing keywords
+              <span id="missingCount" class="badge badge-red" style="margin-left:6px"></span>
+            </h3>
+          </div>
+        </div>
+        <div id="missingKeywords" class="keyword-cloud"></div>
+      </div>
+    </div>
+
+    <div class="card analysis-card">
+      <div class="analysis-card-head">
+        <div>
+          <span class="card-kicker">Action Plan</span>
+          <h3>Improvement suggestions</h3>
+        </div>
+        <span class="mini-badge" id="suggestionBadge">Prioritized by impact</span>
+      </div>
+      <div id="suggestions" class="suggestions-grid"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function updateFileLabel(input) {
+  const label = document.querySelector('.form-file');
+  if (input.files?.[0]) {
+    label.textContent = `Selected: ${input.files[0].name}`;
+    label.style.borderColor = 'var(--c-accent)';
+    label.style.background = 'var(--c-accent-lt)';
+    label.style.color = 'var(--c-accent-dk)';
+  }
+}
+
+async function analyzeResume() {
+  const jd = document.getElementById('job_description').value.trim();
+  if (!jd) {
+    document.getElementById('job_description').focus();
+    return;
+  }
+
+  const btn = document.getElementById('analyzeBtn');
+  const btnText = document.getElementById('analyzeBtnText');
+  const spinner = document.getElementById('analyzeBtnSpinner');
+
+  btn.disabled = true;
+  btnText.textContent = 'Analyzing...';
+  spinner.classList.remove('hidden');
+  document.getElementById('results').classList.add('hidden');
+
+  try {
+    const formData = new FormData(document.getElementById('parseForm'));
+    const res = await fetch('/resume/parse', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    document.getElementById('errorBanner').classList.add('hidden');
+
+    if (data.error) {
+      const banner = document.getElementById('errorBanner');
+      banner.textContent = data.error;
+      banner.classList.remove('hidden');
+      banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    renderAnalysis(data);
+  } catch (err) {
+    const banner = document.getElementById('errorBanner');
+    banner.textContent = 'Network error - could not reach the server. Please try again.';
+    banner.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Analyze resume';
+    spinner.classList.add('hidden');
+  }
+}
+
+function renderAnalysis(data) {
+  const score = Math.round(data.match_percentage ?? 0);
+  const matchedKeywords = data.matched_keywords ?? [];
+  const missingKeywords = data.missing_keywords ?? [];
+  const improvements = data.improvements ?? [];
+  const sScores = data.section_scores ?? {};
+  const sections = Object.entries(sScores).map(([name, value]) => ({
+    name,
+    label: formatSectionLabel(name),
+    value: Math.round(value ?? 0)
+  })).sort((a, b) => b.value - a.value);
+  const bestSection = sections[0];
+  const weakSection = sections[sections.length - 1];
+  const keywordTotal = matchedKeywords.length + missingKeywords.length;
+  const coverage = keywordTotal ? Math.round((matchedKeywords.length / keywordTotal) * 100) : 0;
+
+  const circ = 2 * Math.PI * 57;
+  const offset = circ - (score / 100) * circ;
+  const ring = document.getElementById('scoreRing');
+  ring.style.strokeDashoffset = offset;
+
+  const ringColor = score >= 75 ? '#22c55e' : score >= 50 ? '#d97706' : '#ef4444';
+  ring.style.stroke = ringColor;
+
+  animateNumber('scoreNum', 0, score, 900);
+  document.getElementById('overallFeedback').textContent = data.overall_feedback ?? '';
+  document.getElementById('scoreStatus').textContent = scoreStatusLabel(score);
+  document.getElementById('fitMeterFill').style.width = `${score}%`;
+  document.getElementById('fitMeterFill').style.background = scoreGradient(score);
+  document.getElementById('fitMeterLabel').textContent = fitMeterLabel(score);
+
+  const badges = document.getElementById('scoreBadges');
+  badges.innerHTML = [
+    `<span class="badge ${score >= 75 ? 'badge-green' : score >= 50 ? 'badge-accent' : 'badge-red'}">${scoreStatusBadge(score)}</span>`,
+    `<span class="badge badge-neutral">${coverage}% keyword coverage</span>`,
+    bestSection ? `<span class="badge badge-neutral">Best: ${escHtml(bestSection.label)}</span>` : ''
+  ].join('');
+
+  document.getElementById('coverageValue').textContent = `${coverage}%`;
+  document.getElementById('coverageHint').textContent = `${matchedKeywords.length} matched and ${missingKeywords.length} missing terms`;
+  document.getElementById('topSectionValue').textContent = bestSection ? bestSection.label : 'Not available';
+  document.getElementById('topSectionHint').textContent = bestSection ? `${bestSection.value}% alignment in this section` : 'Waiting for section data';
+  document.getElementById('focusAreaValue').textContent = improvements[0]?.priority ? capitalize(improvements[0].priority) : 'Stable';
+  document.getElementById('focusAreaHint').textContent = improvements[0]?.suggestion ?? 'No urgent action items detected';
+
+  document.getElementById('bestSectionName').textContent = bestSection ? bestSection.label : 'No section data';
+  document.getElementById('bestSectionText').textContent = bestSection
+    ? `${bestSection.label} is leading at ${bestSection.value}%, which gives you the clearest alignment signal right now.`
+    : 'Your highest-scoring section will appear here after analysis.';
+  document.getElementById('weakSectionName').textContent = weakSection ? weakSection.label : 'No section data';
+  document.getElementById('weakSectionText').textContent = weakSection
+    ? `${weakSection.label} is the lowest-scoring area at ${weakSection.value}%, so it is the best place to strengthen evidence and language.`
+    : 'Your lowest-scoring section will surface here with context.';
+  document.getElementById('keywordInsightTitle').textContent = keywordInsightTitle(coverage);
+  document.getElementById('keywordInsightText').textContent = keywordInsightText(coverage, matchedKeywords.length, missingKeywords.length);
+
+  const ctx = document.getElementById('sectionChart').getContext('2d');
+  if (window._sectionChart) window._sectionChart.destroy();
+
+  window._sectionChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: sections.map(section => section.label),
+      datasets: [{
+        data: sections.map(section => section.value),
+        backgroundColor: 'rgba(217, 119, 6, 0.16)',
+        borderColor: '#d97706',
+        pointBackgroundColor: sections.map(section => section.value >= 75 ? '#22c55e' : section.value >= 50 ? '#d97706' : '#ef4444'),
+        pointBorderColor: '#fff7ed',
+        pointHoverRadius: 6,
+        pointRadius: 4,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.raw}%` } }
+      },
+      scales: {
+        r: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { display: false, stepSize: 20 },
+          angleLines: { color: 'rgba(120, 113, 108, 0.12)' },
+          grid: { color: 'rgba(120, 113, 108, 0.12)' },
+          pointLabels: { color: '#57534e', font: { size: 12, weight: 600 } }
+        }
+      }
+    }
+  });
+
+  renderSectionList(sections);
+  document.getElementById('sectionSummaryBadge').textContent = bestSection ? `${bestSection.label} is leading` : 'Score by category';
+
+  renderChips('matchedKeywords', matchedKeywords, 'chip-matched', 'Strong alignment terms will appear here.');
+  renderChips('missingKeywords', missingKeywords, 'chip-missing', 'Missing ATS terms will appear here.');
+  document.getElementById('matchedCount').textContent = matchedKeywords.length;
+  document.getElementById('missingCount').textContent = missingKeywords.length;
+  document.getElementById('matchedCountInline').textContent = matchedKeywords.length;
+  document.getElementById('missingCountInline').textContent = missingKeywords.length;
+  document.getElementById('improvementCountInline').textContent = improvements.length;
+  document.getElementById('coverageMatchedBar').style.width = `${coverage}%`;
+  document.getElementById('coverageMissingBar').style.width = `${Math.max(0, 100 - coverage)}%`;
+
+  const sugg = document.getElementById('suggestions');
+  sugg.innerHTML = '';
+  improvements.forEach(item => {
+    const priority = item.priority ?? 'low';
+    const card = document.createElement('div');
+    card.className = `suggestion-card suggestion-${priority}`;
+    card.innerHTML = `
+      <div class="suggestion-topline">
+        <span class="priority-dot priority-${escHtml(priority)}"></span>
+        <span class="suggestion-priority">${escHtml(capitalize(priority))} priority</span>
+      </div>
+      <strong>${escHtml(item.suggestion)}</strong>
+      <p>${escHtml(item.reason)}</p>
+    `;
+    sugg.appendChild(card);
+  });
+
+  if (!improvements.length) {
+    sugg.innerHTML = `<div class="suggestion-card suggestion-empty"><strong>No major issues detected.</strong><p>Your resume is already covering the main areas for this role.</p></div>`;
+  }
+
+  document.getElementById('suggestionBadge').textContent = improvements.length
+    ? `${improvements.length} focused recommendations`
+    : 'No urgent recommendations';
+
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderSectionList(sections) {
+  const el = document.getElementById('sectionList');
+  if (!sections.length) {
+    el.innerHTML = `<div class="analysis-empty">No section scores available yet.</div>`;
+    return;
+  }
+
+  el.innerHTML = sections.map(section => `
+    <div class="section-row">
+      <div class="section-row-head">
+        <span>${escHtml(section.label)}</span>
+        <strong>${section.value}%</strong>
+      </div>
+      <div class="section-row-bar">
+        <div class="section-row-fill" style="width:${section.value}%; background:${scoreGradient(section.value)}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderChips(containerId, keywords, cls, emptyText) {
+  const el = document.getElementById(containerId);
+  if (!keywords.length) {
+    el.innerHTML = `<div class="analysis-empty">${escHtml(emptyText)}</div>`;
+    return;
+  }
+  el.innerHTML = keywords.map(k => `<span class="chip ${cls}">${escHtml(k)}</span>`).join('');
+}
+
+function animateNumber(id, from, to, dur) {
+  const el = document.getElementById(id);
+  const fps = 60;
+  const n = Math.max(1, Math.round(dur / (1000 / fps)));
+  let i = 0;
+  const step = (to - from) / n;
+  const t = setInterval(() => {
+    i++;
+    el.textContent = Math.round(from + step * i);
+    if (i >= n) {
+      el.textContent = to;
+      clearInterval(t);
+    }
+  }, 1000 / fps);
+}
+
+function escHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function capitalize(str = '') {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
+function formatSectionLabel(name = '') {
+  return String(name)
+    .split('_')
+    .map(capitalize)
+    .join(' ');
+}
+
+function scoreStatusLabel(score) {
+  if (score >= 85) return 'High confidence match';
+  if (score >= 70) return 'Competitive match';
+  if (score >= 50) return 'Promising with gaps';
+  return 'Low alignment detected';
+}
+
+function scoreStatusBadge(score) {
+  if (score >= 85) return 'Ready to submit';
+  if (score >= 70) return 'Strong potential';
+  if (score >= 50) return 'Worth refining';
+  return 'Needs improvement';
+}
+
+function fitMeterLabel(score) {
+  if (score >= 85) return 'Your resume language is strongly aligned with this role.';
+  if (score >= 70) return 'You have a solid foundation with a few gaps to tighten.';
+  if (score >= 50) return 'The fit is visible, but stronger role-specific evidence will help.';
+  return 'The resume needs clearer alignment to the target role and ATS language.';
+}
+
+function keywordInsightTitle(coverage) {
+  if (coverage >= 75) return 'Keyword alignment is strong';
+  if (coverage >= 50) return 'Keyword match is moderate';
+  return 'Keyword gaps are holding you back';
+}
+
+function keywordInsightText(coverage, matched, missing) {
+  if (coverage >= 75) return `You are matching ${matched} terms and only missing ${missing}, which is a healthy ATS signal.`;
+  if (coverage >= 50) return `You are matching ${matched} terms, but adding a few of the ${missing} missing phrases should improve relevance.`;
+  return `Only ${matched} terms are matching while ${missing} are missing, so keyword targeting should be your first move.`;
+}
+
+function scoreGradient(value) {
+  if (value >= 75) return 'linear-gradient(90deg, #22c55e 0%, #86efac 100%)';
+  if (value >= 50) return 'linear-gradient(90deg, #d97706 0%, #fdba74 100%)';
+  return 'linear-gradient(90deg, #ef4444 0%, #fca5a5 100%)';
+}
+</script>
+{% endblock %}
