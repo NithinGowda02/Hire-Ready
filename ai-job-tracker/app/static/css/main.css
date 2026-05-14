@@ -1468,8 +1468,23 @@ h4 { font-size: 15px; font-weight: 600; }
 
   .score-summary { flex-direction: column; text-align: center; }
   .resume-row { flex-direction: column; align-items: flex-start; }
-  .resume-row-actions { width: 100%; }
-  .resume-row-actions .btn { flex: 1; }
+  .resume-row-actions { width: 100%; flex-wrap: wrap; }
+  .resume-row-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 12px;
+    padding-inline: 10px;
+    white-space: normal;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .form-file {
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 
   .footer-inner { flex-direction: column; text-align: center; }
   .hero-cta { flex-direction: column; align-items: stretch; }
