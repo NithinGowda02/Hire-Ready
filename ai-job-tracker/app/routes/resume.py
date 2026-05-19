@@ -1,5 +1,7 @@
 # app/routes/resume.py
 
+from __future__ import annotations
+
 import io
 import sys
 from pathlib import Path

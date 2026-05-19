@@ -11,6 +11,7 @@ An intelligent job search platform that uses AI to help users create ATS-optimiz
 - **Smart Cover Letters** - Generate personalized cover letters for specific roles
 - **Job Search Integration** - Search jobs from Adzuna API
 - **Google OAuth Authentication** - Secure login with Google accounts
+- **Forgot Password Flow** - Time-limited email reset links for account recovery
 - **Profile Management** - Comprehensive user profile with work experience, skills, etc.
 - **PDF Export** - Download resumes as professional PDF documents
 
@@ -85,6 +86,20 @@ An intelligent job search platform that uses AI to help users create ATS-optimiz
    GOOGLE_CLIENT_ID=your_client_id
    GOOGLE_CLIENT_SECRET=your_client_secret
    ```
+
+### Password Reset Email
+Add SMTP settings to `.env` so CareerAI can send password reset emails:
+```
+RESET_PASSWORD_TOKEN_MAX_AGE=3600
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USE_SSL=False
+MAIL_USERNAME=your_email@example.com
+MAIL_PASSWORD=your_app_password
+MAIL_DEFAULT_SENDER=CareerAI <your_email@example.com>
+MAIL_SUPPRESS_SEND=False
+```
 
 ### Job APIs (Optional)
 - **Adzuna API**: Get API key from [developer.adzuna.com](https://developer.adzuna.com/)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # app/services/ai_service.py
 #
 # Tries providers in this order — automatically, no manual switching needed:
