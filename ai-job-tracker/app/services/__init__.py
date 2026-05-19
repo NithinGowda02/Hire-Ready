@@ -42,10 +42,6 @@ def create_app():
     login_manager.login_view = 'auth.login'
     oauth.init_app(app)
 
-    # ✅ Initialize Flask-Mail via email_service
-    from app.services.email_service import init_mail
-    init_mail(app)
-
     # Register blueprints
     from app.routes.auth         import auth_bp
     from app.routes.dashboard    import dashboard_bp
@@ -61,7 +57,6 @@ def create_app():
     app.register_blueprint(cover_letter_bp)
     app.register_blueprint(jobs_bp)
 
-    # ── Static routes ────────────────────────────────────────────────────────
     @app.route('/')
     def home():
         return render_template('home.html')

@@ -1,53 +1,62 @@
 # app/services/email_service.py
 #
-# Sends transactional emails via Flask-Mail (Gmail SMTP).
-# Requires these env vars on Render:
-#   MAIL_SERVER   = smtp.gmail.com
-#   MAIL_PORT     = 587
-#   MAIL_USE_TLS  = true
-#   MAIL_USERNAME = careerai.noreply@gmail.com
-#   MAIL_PASSWORD = <16-char Gmail app password>
+# Sends email via Brevo HTTP API (not SMTP).
+# Render's free tier blocks SMTP port 587, so we use HTTP instead.
+#
+# Setup:
+#   1. Sign up free at https://brevo.com
+#   2. Go to SMTP & API → API Keys → Create API Key
+#   3. Add to Render environment:
+#        BREVO_API_KEY     = your-api-key
+#        MAIL_DEFAULT_SENDER = careerai.noreply@gmail.com  (your sender email)
 
 from __future__ import annotations
 
 import logging
-from flask         import current_app
-from flask_mail    import Mail, Message
+import os
+import requests
 
 logger = logging.getLogger(__name__)
 
-# Mail instance — shared with __init__.py via init_mail()
-mail = Mail()
-
-
-def init_mail(app) -> None:
-    """Call this from create_app() after app.config is loaded."""
-    mail.init_app(app)
+BREVO_SEND_URL = 'https://api.brevo.com/v3/smtp/email'
 
 
 def send_email(to: str, subject: str, body: str, html: str | None = None) -> bool:
     """
-    Send a plain-text (+ optional HTML) email.
-
-    Returns True on success, False on failure.
-    Never raises — logs the error instead so the caller can degrade gracefully.
+    Send email via Brevo HTTP API.
+    Returns True on success, False on failure. Never raises.
     """
-    if not current_app.config.get('MAIL_USERNAME'):
-        logger.warning('[mail] MAIL_USERNAME not configured — email not sent.')
+    api_key = os.environ.get('BREVO_API_KEY', '').strip()
+    sender  = os.environ.get('MAIL_DEFAULT_SENDER', '').strip()
+
+    if not api_key:
+        logger.warning('[mail] BREVO_API_KEY not set — email not sent.')
         return False
 
-    if current_app.config.get('MAIL_SUPPRESS_SEND'):
-        logger.info('[mail] MAIL_SUPPRESS_SEND=true — skipping send to %s', to)
-        return True
+    if not sender:
+        logger.warning('[mail] MAIL_DEFAULT_SENDER not set — email not sent.')
+        return False
+
+    payload = {
+        'sender':     {'email': sender, 'name': 'CareerAI'},
+        'to':         [{'email': to}],
+        'subject':    subject,
+        'textContent': body,
+    }
+    if html:
+        payload['htmlContent'] = html
 
     try:
-        msg = Message(
-            subject   = subject,
-            recipients = [to],
-            body      = body,
-            html      = html,
+        resp = requests.post(
+            BREVO_SEND_URL,
+            json=payload,
+            headers={
+                'api-key':      api_key,
+                'Content-Type': 'application/json',
+            },
+            timeout=15,
         )
-        mail.send(msg)
+        resp.raise_for_status()
         logger.info('[mail] ✓ Sent "%s" to %s', subject, to)
         return True
 
@@ -56,8 +65,13 @@ def send_email(to: str, subject: str, body: str, html: str | None = None) -> boo
         return False
 
 
-def send_password_reset_email(user_name: str, user_email: str, reset_link: str, expires_minutes: int = 60) -> bool:
-    """Convenience wrapper specifically for password reset emails."""
+def send_password_reset_email(
+    user_name: str,
+    user_email: str,
+    reset_link: str,
+    expires_minutes: int = 60,
+) -> bool:
+    """Convenience wrapper for password reset emails."""
     subject = 'Reset your CareerAI password'
 
     body = (
