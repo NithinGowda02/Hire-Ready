@@ -99,24 +99,23 @@ def login():
 # ── Google OAuth — initiate ───────────────────────────────────────────────────
 @auth_bp.route('/google')
 def google_login():
-    # Build redirect URI from environment so it works in both local and production
-    base_url = os.environ.get('FRONTEND_URL', 'http://127.0.0.1:5000').rstrip('/')
-    redirect_uri = f"{base_url}/auth/google/callback"
-
-    print(f"[OAuth] Redirect URI being sent to Google: {redirect_uri}")  # debug log
-
+    # ✅ url_for with _external=True automatically generates the correct URL
+    # for both local (http://127.0.0.1:5000/...) and Render (https://hire-ready.onrender.com/...)
+    # This works because ProxyFix in __init__.py tells Flask to trust the https:// scheme
+    redirect_uri = url_for('auth.google_callback', _external=True)
+    print(f"[OAuth] Redirect URI being sent to Google: {redirect_uri}")
     return google.authorize_redirect(redirect_uri)
 
 
 # ── Google OAuth — callback ───────────────────────────────────────────────────
 @auth_bp.route('/google/callback')
 def google_callback():
-    # Must use same URI as in google_login
-    base_url = os.environ.get('FRONTEND_URL', 'http://127.0.0.1:5000').rstrip('/')
-    redirect_uri = f"{base_url}/auth/google/callback"
+    # ✅ Must use the exact same URI as in google_login
+    redirect_uri = url_for('auth.google_callback', _external=True)
 
     try:
-        token     = google.authorize_access_token()
+        # ✅ Pass redirect_uri here — this was missing before and caused the mismatch
+        token     = google.authorize_access_token(redirect_uri=redirect_uri)
         user_info = token.get('userinfo')
 
         if not user_info:

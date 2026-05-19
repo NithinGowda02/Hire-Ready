@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from authlib.integrations.flask_client import OAuth
+from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import DevelopmentConfig, ProductionConfig
 import os
 
@@ -13,6 +14,9 @@ oauth = OAuth()
 
 def create_app():
     app = Flask(__name__)
+
+    # ✅ Fix: ProxyFix must be applied FIRST so Flask sees https:// on Render
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     env = os.environ.get('FLASK_ENV', 'development')
     app.config.from_object(DevelopmentConfig if env == 'development' else ProductionConfig)
