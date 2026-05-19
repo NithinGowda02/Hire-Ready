@@ -62,6 +62,22 @@ def create_app():
     def home():
         return render_template('home.html')
 
+    @app.route('/privacy')
+    def privacy():
+        return render_template('legal/privacy.html')
+
+    @app.route('/terms')
+    def terms():
+        return render_template('legal/terms.html')
+
+    @app.route('/help')
+    def help_page():
+        return render_template('legal/help.html')
+
+    @app.context_processor
+    def inject_template_globals():
+        return {'current_year': 2026}
+
     @login_manager.user_loader
     def load_user(user_id):
         from app.models.user import User
