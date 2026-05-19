@@ -7,22 +7,22 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import DevelopmentConfig, ProductionConfig
 import os
 
-db = SQLAlchemy()
-migrate = Migrate()
+db            = SQLAlchemy()
+migrate       = Migrate()
 login_manager = LoginManager()
-oauth = OAuth()
+oauth         = OAuth()
+
 
 def create_app():
     app = Flask(__name__)
 
-    # ✅ Fix: ProxyFix must be applied FIRST so Flask sees https:// on Render
+    # Must be first — fixes https:// detection behind Render's reverse proxy
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     env = os.environ.get('FLASK_ENV', 'development')
     app.config.from_object(DevelopmentConfig if env == 'development' else ProductionConfig)
 
     # Fix DATABASE_URL for Neon / Render
-    # Both services give postgresql:// but SQLAlchemy needs postgresql+psycopg2://
     db_url = os.environ.get('DATABASE_URL', '')
     if db_url.startswith('postgres://'):
         db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
@@ -31,8 +31,8 @@ def create_app():
     if db_url:
         app.config['SQLALCHEMY_DATABASE_URI'] = db_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,  # auto-reconnect if Neon suspends idle connection
-            'pool_recycle':  300,   # recycle connections every 5 min
+            'pool_pre_ping': True,
+            'pool_recycle':  300,
         }
 
     # Initialize extensions
@@ -42,13 +42,17 @@ def create_app():
     login_manager.login_view = 'auth.login'
     oauth.init_app(app)
 
+    # ✅ Initialize Flask-Mail via email_service
+    from app.services.email_service import init_mail
+    init_mail(app)
+
     # Register blueprints
-    from app.routes.auth import auth_bp
-    from app.routes.dashboard import dashboard_bp
-    from app.routes.profile import profile_bp
-    from app.routes.resume import resume_bp
+    from app.routes.auth         import auth_bp
+    from app.routes.dashboard    import dashboard_bp
+    from app.routes.profile      import profile_bp
+    from app.routes.resume       import resume_bp
     from app.routes.cover_letter import cover_letter_bp
-    from app.routes.jobs import jobs_bp
+    from app.routes.jobs         import jobs_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -57,7 +61,7 @@ def create_app():
     app.register_blueprint(cover_letter_bp)
     app.register_blueprint(jobs_bp)
 
-    # Home route
+    # ── Static routes ────────────────────────────────────────────────────────
     @app.route('/')
     def home():
         return render_template('home.html')

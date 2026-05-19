@@ -1,11 +1,13 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
-from flask_login import current_user, login_required, login_user, logout_user
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+# app/routes/auth.py
+
+from flask             import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask_login       import current_user, login_required, login_user, logout_user
+from itsdangerous      import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app import db, oauth
-from app.models.user import User
-from app.services.email_service import send_email
+from app               import db, oauth
+from app.models.user   import User
+from app.services.email_service import send_password_reset_email
 
 import os
 import re
@@ -35,10 +37,9 @@ def _get_reset_serializer() -> URLSafeTimedSerializer:
 
 
 def _generate_reset_token(user: User) -> str:
-    serializer = _get_reset_serializer()
-    return serializer.dumps(
+    return _get_reset_serializer().dumps(
         {
-            'user_id': user.id,
+            'user_id':       user.id,
             'password_hash': user.password_hash or '',
         },
         salt='password-reset',
@@ -46,10 +47,8 @@ def _generate_reset_token(user: User) -> str:
 
 
 def _verify_reset_token(token: str) -> Optional[User]:
-    serializer = _get_reset_serializer()
-
     try:
-        data = serializer.loads(
+        data = _get_reset_serializer().loads(
             token,
             salt='password-reset',
             max_age=current_app.config['RESET_PASSWORD_TOKEN_MAX_AGE'],
@@ -61,25 +60,14 @@ def _verify_reset_token(token: str) -> Optional[User]:
     if not user:
         return None
 
+    # Token is invalidated if password was already changed
     if (user.password_hash or '') != data.get('password_hash', ''):
         return None
 
     return user
 
 
-def _send_password_reset_email(user: User) -> bool:
-    reset_link = url_for('auth.reset_password', token=_generate_reset_token(user), _external=True)
-    expires_in_minutes = max(current_app.config['RESET_PASSWORD_TOKEN_MAX_AGE'] // 60, 1)
-    subject = 'Reset your CareerAI password'
-    body = (
-        f'Hi {user.name},\n\n'
-        f'Use the link below to reset your CareerAI password:\n{reset_link}\n\n'
-        f'This link expires in {expires_in_minutes} minutes.\n'
-        'If you did not request this, you can ignore this email.\n'
-    )
-    return send_email(user.email, subject, body)
-
-
+# ── OAuth client ──────────────────────────────────────────────────────────────
 google = oauth.register(
     name='google',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -89,14 +77,15 @@ google = oauth.register(
 )
 
 
+# ── Register ──────────────────────────────────────────────────────────────────
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip().lower()
+        name     = request.form.get('name',     '').strip()
+        email    = request.form.get('email',    '').strip().lower()
         password = request.form.get('password', '')
 
         if not name or not email or not password:
@@ -127,13 +116,14 @@ def register():
     return render_template('auth/register.html')
 
 
+# ── Login ─────────────────────────────────────────────────────────────────────
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        email    = request.form.get('email',    '').strip().lower()
         password = request.form.get('password', '')
 
         user = User.query.filter_by(email=email).first()
@@ -148,6 +138,7 @@ def login():
     return render_template('auth/login.html')
 
 
+# ── Forgot Password ───────────────────────────────────────────────────────────
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if current_user.is_authenticated:
@@ -155,14 +146,17 @@ def forgot_password():
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        user = User.query.filter_by(email=email).first()
+        user  = User.query.filter_by(email=email).first()
 
         if user:
             try:
-                _send_password_reset_email(user)
+                reset_link      = url_for('auth.reset_password', token=_generate_reset_token(user), _external=True)
+                expires_minutes = max(current_app.config['RESET_PASSWORD_TOKEN_MAX_AGE'] // 60, 1)
+                send_password_reset_email(user.name, user.email, reset_link, expires_minutes)
             except Exception:
                 current_app.logger.exception('Failed to send password reset email to %s', email)
 
+        # Always show the same message — prevents email enumeration attacks
         flash(
             'If an account with that email exists, password reset instructions have been sent.',
             'success',
@@ -172,6 +166,7 @@ def forgot_password():
     return render_template('auth/forgot_password.html')
 
 
+# ── Reset Password ────────────────────────────────────────────────────────────
 @auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     if current_user.is_authenticated:
@@ -183,7 +178,7 @@ def reset_password(token):
         return redirect(url_for('auth.forgot_password'))
 
     if request.method == 'POST':
-        password = request.form.get('password', '')
+        password         = request.form.get('password',         '')
         confirm_password = request.form.get('confirm_password', '')
 
         if not password or not confirm_password:
@@ -207,6 +202,7 @@ def reset_password(token):
     return render_template('auth/reset_password.html', token=token)
 
 
+# ── Google OAuth — initiate ───────────────────────────────────────────────────
 @auth_bp.route('/google')
 def google_login():
     redirect_uri = url_for('auth.google_callback', _external=True)
@@ -214,10 +210,11 @@ def google_login():
     return google.authorize_redirect(redirect_uri)
 
 
+# ── Google OAuth — callback ───────────────────────────────────────────────────
 @auth_bp.route('/google/callback')
 def google_callback():
     try:
-        token = google.authorize_access_token()
+        token     = google.authorize_access_token()
         user_info = token.get('userinfo')
 
         if not user_info:
@@ -233,9 +230,11 @@ def google_callback():
     if not user:
         user = User.query.filter_by(email=user_info['email']).first()
         if user:
-            user.google_id = user_info['sub']
+            # Existing email account — link Google ID
+            user.google_id  = user_info['sub']
             user.avatar_url = user_info.get('picture') or user.avatar_url
         else:
+            # Brand new user via Google
             user = User(
                 email=user_info['email'],
                 name=user_info['name'],
@@ -255,6 +254,7 @@ def google_callback():
     return redirect(url_for('dashboard.index'))
 
 
+# ── Logout ────────────────────────────────────────────────────────────────────
 @auth_bp.route('/logout')
 @login_required
 def logout():
