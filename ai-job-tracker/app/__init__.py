@@ -8,6 +8,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import DevelopmentConfig, ProductionConfig
 
 import os
+import socket
+from urllib.parse import urlparse
 
 
 db = SQLAlchemy()
@@ -32,10 +34,25 @@ def create_app():
 
     if db_url:
         app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+
+        engine_options = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
         }
+
+        # Render's network can't route IPv6, but Neon's hostname sometimes
+        # resolves to an AAAA (IPv6) record. Force libpq to dial the IPv4
+        # address directly via hostaddr, while keeping the hostname for SSL.
+        try:
+            hostname = urlparse(db_url).hostname
+            if hostname:
+                ipv4_addr = socket.gethostbyname(hostname)
+                engine_options['connect_args'] = {'hostaddr': ipv4_addr}
+        except socket.gaierror:
+            # Fall back to normal resolution if IPv4 lookup fails
+            pass
+
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 
     db.init_app(app)
     migrate.init_app(app, db)
